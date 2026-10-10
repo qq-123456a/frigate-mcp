@@ -72,3 +72,30 @@ def test_update_flow():
         pending = await update("genai.model", "latest", "new", dry_run=False)
         assert pending["success"] and pending["verified"] is False
     asyncio.run(check())
+
+
+def test_sensitive_subtrees_are_never_read_or_updated():
+    async def check():
+        server, client = FakeMCP(), FakeClient()
+        client.config["go2rtc"] = {
+            "streams": {"front": "rtsp://camera/live?token=stream-secret"}
+        }
+        client.config["environment_vars"] = {
+            "FRIGATE_PLUS_API_KEY": "environment-secret"
+        }
+        register_system_tools(server, client)
+        read = server.tools["get_config_field"]
+        update = server.tools["update_config_field"]
+
+        for path, value in (
+            ("go2rtc.streams.front", "rtsp://camera/live?token=stream-secret"),
+            ("environment_vars.FRIGATE_PLUS_API_KEY", "environment-secret"),
+        ):
+            with pytest.raises(ValueError):
+                await read(path)
+            with pytest.raises(ValueError):
+                await update(path, "replacement", value, dry_run=False)
+
+        assert client.calls == []
+
+    asyncio.run(check())
