@@ -13,6 +13,10 @@ def _config_field(config: dict[str, Any], field_path: str) -> Any:
     parts = field_path.split(".")
     if not parts or any(not p or p.startswith("_") or p.isdigit() for p in parts):
         raise ValueError("Invalid config field path")
+    if parts[0].lower() == "environment_vars" or (
+        len(parts) >= 2 and parts[0].lower() == "go2rtc" and parts[1].lower() == "streams"
+    ):
+        raise ValueError("Sensitive configuration fields are not exposed by this tool")
     if any(p.lower() in _SENSITIVE or "password" in p.lower() or "secret" in p.lower() or "token" in p.lower() for p in parts):
         raise ValueError("Sensitive configuration fields are not exposed by this tool")
     node: Any = config
